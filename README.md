@@ -54,7 +54,7 @@ num_actions = env.action_space.n
 
 V = np.zeros(num_states)
 
-# Uniform random policy
+
 policy = np.ones((num_states, num_actions)) / num_actions
 
 while True:
