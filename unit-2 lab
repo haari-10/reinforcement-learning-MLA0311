@@ -1,0 +1,79 @@
+import numpy as np
+import random
+
+# ------------- Drone Delivery Environment -----------------
+class DroneEnv:
+    def __init__(self, grid_size=4):
+        self.grid_size = grid_size
+        self.goal = (3, 3)
+        self.restricted = (1, 2)  # No-fly zone
+
+    def step(self, state, action):
+        row, col = state
+
+        if action == 0: row -= 1      # Up
+        elif action == 1: col += 1   # Right
+        elif action == 2: row += 1   # Down
+        elif action == 3: col -= 1   # Left
+
+        # keep inside city bounds
+        row = np.clip(row, 0, self.grid_size - 1)
+        col = np.clip(col, 0, self.grid_size - 1)
+
+        reward = -1  # fuel + time cost
+
+        if (row, col) == self.restricted:
+            reward = -5
+        elif (row, col) == self.goal:
+            reward = 10
+
+        return (row, col), reward
+
+# ------------- Monte Carlo Control -----------------
+num_states = 16
+num_actions = 4
+gamma = 0.9
+episodes = 5000
+
+env = DroneEnv()
+
+# Q table and returns list
+Q = np.zeros((num_states, num_actions))
+returns = [[ ] for _ in range(num_states * num_actions)]
+
+def state_to_index(s):
+    return s[0] * 4 + s[1]
+
+# Policy: random initially
+policy = np.random.randint(0, num_actions, size=num_states)
+
+for _ in range(episodes):
+    episode = []
+    state = (random.randint(0, 3), random.randint(0, 3))
+
+    # Generate episode
+    while True:
+        s_idx = state_to_index(state)
+        action = policy[s_idx]
+        next_state, reward = env.step(state, action)
+        episode.append((s_idx, action, reward))
+
+        if next_state == env.goal:
+            break
+        state = next_state
+
+    # Monte Carlo return updates
+    G = 0
+    visited = set()
+    for (s_idx, action, reward) in reversed(episode):
+        G = reward + gamma * G
+        if (s_idx, action) not in visited:
+            visited.add((s_idx, action))
+            returns[s_idx * num_actions + action].append(G)
+            Q[s_idx][action] = np.mean(returns[s_idx * num_actions + action])
+            policy[s_idx] = np.argmax(Q[s_idx])  # improve policy
+
+print("Optimal Policy (0=Up,1=Right,2=Down,3=Left):")
+print(policy.reshape(4, 4))
+print("\nOptimal Q-values:")
+print(Q.reshape(4,4,4))
